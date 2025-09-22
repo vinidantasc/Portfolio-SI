@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portfólio - Gestão de Sistemas de Informação</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+  <div class="container">
+    <nav class="sidebar">
+      <h2>Portfólio SI</h2>
+      <ul>
+        <li onclick="showSection('dashboard')"><i class="fas fa-chart-line"></i> Dashboard</li>
+        <li onclick="showSection('portfolio')"><i class="fas fa-folder-open"></i> Portfólio</li>
+        <li onclick="showSection('reflections')"><i class="fas fa-comment-dots"></i> Adicionar</li>
+      </ul>
+    </nav>
+
+    <main>
+      <section id="dashboard" class="section active">
+        <h1>Dashboard</h1>
+        <div class="cards">
+          <div class="card">
+            <h3>Total de Atividades</h3>
+            <p id="total-activities">0</p>
+          </div>
+          <div class="card">
+            <h3>Total de Fóruns</h3>
+            <p id="total-forums">0</p>
+          </div>
+          <div class="card">
+            <h3>Total de Reflexões</h3>
+            <p id="total-reflections">0</p>
+          </div>
+          <div class="card">
+            <h3>Porcentagem Concluída</h3>
+            <p id="completion-percent">0%</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="portfolio" class="section">
+        <h1>Portfólio de Atividades</h1>
+        <div class="filters">
+            <label for="filter-type">Filtrar por Tipo:</label>
+            <select id="filter-type">
+                <option value="todos">Todos</option>
+                <option value="atividade_avaliativa">Atividade Avaliativa</option>
+                <option value="forum">Fórum</option>
+                <option value="reflexao_pessoal">Reflexão Pessoal</option>
+            </select>
+
+            <label for="filter-date">Filtrar por Data:</label>
+            <input type="date" id="filter-date">
+        </div>
+        <ul id="portfolio-list"></ul>
+      </section>
+
+      <section id="reflections" class="section">
+        <h1>Adicionar Reflexão / Atividade</h1>
+        <form id="entry-form">
+          <label for="week">Semana:</label>
+          <input type="date" id="week" required>
+
+          <label for="type">Tipo:</label>
+          <select id="type" required>
+            <option value="atividade_avaliativa">Atividade Avaliativa</option>
+            <option value="forum">Fórum</option>
+            <option value="reflexao_pessoal">Reflexão Pessoal</option>
+          </select>
+
+          <label for="content">Conteúdo:</label>
+          <textarea id="content" rows="4" required></textarea>
+
+          <button type="submit">Adicionar</button>
+        </form>
+      </section>
+    </main>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
