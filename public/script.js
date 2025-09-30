@@ -6,6 +6,10 @@
 let portfolioData = [];
 let filteredData = []; // Para armazenar os dados filtrados/exibidos
 
+// Novo: Variáveis de estado para controle de edição
+let isEditing = false;
+let editingIndex = null; 
+
 // Mapeamento de Tipos
 const typeMap = {
     'atividade_avaliativa': 'Atividade Avaliativa',
@@ -14,7 +18,70 @@ const typeMap = {
 };
 
 // --------------------------------------------------------------------------------
-// 2. Funções Principais de Navegação e Dados
+// 2. Funções de Backend (Fetch)
+// --------------------------------------------------------------------------------
+
+/**
+ * Carrega os dados do backend, atribui um ID (índice original) e atualiza o estado.
+ */
+async function loadDataAndRender() {
+    try {
+        const response = await fetch('/entries');
+        let data = await response.json();
+        
+        // Atribui um 'id' (índice no array, necessário para o update no backend)
+        // e armazena os dados. Inverte a ordem para os mais recentes aparecerem primeiro.
+        portfolioData = data.map((item, index) => ({ ...item, id: index }));
+        
+        updateDashboard();
+        applyFiltersAndRender();
+    } catch (error) {
+        console.error("Erro ao buscar dados do portfólio:", error);
+        // Em um ambiente de produção, aqui seria um tratamento de erro mais robusto.
+    }
+}
+
+/**
+ * Salva (POST) ou Atualiza (PUT) uma entrada no servidor.
+ * @param {Object} entry - A entrada de dados a ser salva/atualizada.
+ * @param {number|null} id - O índice do registro a ser atualizado (null para novo).
+ */
+async function saveEntry(entry, id = null) {
+    const method = id !== null ? 'PUT' : 'POST';
+    const endpoint = id !== null ? '/update' : '/save';
+    // Se for PUT, envia o índice e a nova entrada. Se for POST, envia a nova entrada.
+    const body = id !== null ? JSON.stringify({ index: id, newEntry: entry }) : JSON.stringify(entry);
+    
+    try {
+        const response = await fetch(endpoint, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: body,
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            alert(result.message);
+            // Recarrega os dados após salvar/atualizar
+            await loadDataAndRender(); 
+            cancelEdit(); // Limpa o estado de edição/navega
+            return true;
+        } else {
+            alert('Erro ao salvar o registro: ' + result.message);
+            return false;
+        }
+    } catch (error) {
+        console.error('Erro de rede ao salvar/atualizar:', error);
+        alert('Erro de comunicação com o servidor. Verifique se o servidor está rodando.');
+        return false;
+    }
+}
+
+// --------------------------------------------------------------------------------
+// 3. Funções Principais de Navegação e Dashboard
 // --------------------------------------------------------------------------------
 
 /**
@@ -31,10 +98,15 @@ function showSection(sectionId) {
     // Se for para a seção Portfólio, renderiza a lista
     if (sectionId === 'portfolio') {
         applyFiltersAndRender();
+        cancelEdit(false); // Garante que o estado de edição está limpo ao sair
     }
     // Se for para a seção Dashboard, atualiza os dados
     if (sectionId === 'dashboard') {
         updateDashboard();
+    }
+    // Se for para Adicionar e não estiver editando, limpa o formulário
+    if (sectionId === 'reflections' && !isEditing) {
+        document.getElementById('entry-form').reset();
     }
 }
 
@@ -48,8 +120,9 @@ function updateDashboard() {
     const totalReflections = portfolioData.filter(item => item.type === 'reflexao_pessoal').length;
     const totalEvaluativeActivities = portfolioData.filter(item => item.type === 'atividade_avaliativa').length;
     
-    // Simplificando o "Concluído" para o total de entradas (Exemplo)
     const totalCompletionBasis = 5; // Assumindo um total de 5 marcos/tarefas principais para 100%
+    // A ordem precisa ser invertida para mostrar os mais recentes primeiro na lista
+    const recentData = [...portfolioData].reverse();
     const completionPercent = Math.min(100, Math.round((totalEvaluativeActivities / totalCompletionBasis) * 100));
 
     document.getElementById('total-activities').textContent = totalActivities.toString();
@@ -60,7 +133,7 @@ function updateDashboard() {
 
 
 // --------------------------------------------------------------------------------
-// 3. Funções do Modal (Pop-up) - NOVIDADE
+// 4. Funções do Modal (Pop-up) - Visualização
 // --------------------------------------------------------------------------------
 
 /**
@@ -73,10 +146,9 @@ function openModal(date, type, content) {
     const modal = document.getElementById('full-content-modal');
     document.getElementById('modal-title').textContent = typeMap[type] || 'Detalhes da Atividade';
     document.querySelector('.modal-date').textContent = `Semana: ${date}`;
-    document.getElementById('modal-text').textContent = content; // Usamos textContent para evitar injeção de HTML
+    document.getElementById('modal-text').textContent = content; 
     modal.style.display = 'block';
 
-    // Adiciona listener para fechar ao pressionar ESC
     document.addEventListener('keydown', handleEscClose);
 }
 
@@ -87,7 +159,6 @@ function closeModal() {
     const modal = document.getElementById('full-content-modal');
     modal.style.display = 'none';
 
-    // Remove listener
     document.removeEventListener('keydown', handleEscClose);
 }
 
@@ -110,7 +181,7 @@ window.onclick = function(event) {
 
 
 // --------------------------------------------------------------------------------
-// 4. Funções de Renderização e Filtros
+// 5. Funções de Renderização e Filtros
 // --------------------------------------------------------------------------------
 
 /**
@@ -121,12 +192,36 @@ function renderPortfolio(data) {
     const portfolioList = document.getElementById('portfolio-list');
     portfolioList.innerHTML = ''; 
 
-    data.forEach(item => {
+    // Reverte a lista de dados filtrados para exibir os mais recentes primeiro
+    const displayData = [...data].reverse();
+
+    displayData.forEach(item => {
         const listItem = document.createElement('li');
         
-        // Atribui o evento de clique para abrir o modal
-        listItem.addEventListener('click', () => {
-            const formattedDate = new Date(item.week).toLocaleDateString('pt-BR', { year: 'numeric', month: '2-digit', day: '2-digit' });
+        // >>> INÍCIO DA CORREÇÃO DE BUG DE DATA <<<
+        // O formato 'YYYY-MM-DD' é interpretado como UTC por padrão, o que causa
+        // o desvio de -1 dia em fusos horários negativos (ex: UTC-3).
+        // Solução: Analisar a string e construir o objeto Date usando o fuso horário local.
+        const parts = item.week.split('-');
+        const year = parseInt(parts[0], 10);
+        // O mês em JavaScript é 0-indexado (0 para Jan, 8 para Set, etc.)
+        const month = parseInt(parts[1], 10) - 1;
+        const day = parseInt(parts[2], 10);
+        
+        // Cria um objeto Date no fuso horário local (evita o recuo de dia)
+        const dateObj = new Date(year, month, day); 
+        
+        // Formatação final da data
+        const formattedDate = dateObj.toLocaleDateString('pt-BR', { year: 'numeric', month: '2-digit', day: '2-digit' });
+        // >>> FIM DA CORREÇÃO DE BUG DE DATA <<<
+
+        // Atribui o evento de clique para abrir o modal (visualização)
+        listItem.addEventListener('click', (e) => {
+            // Impede a abertura do modal de visualização se o botão de edição for clicado
+            if (e.target.closest('.edit-button')) {
+                return; 
+            }
+            // Usa a data formatada já corrigida
             openModal(formattedDate, item.type, item.content);
         });
 
@@ -145,20 +240,24 @@ function renderPortfolio(data) {
                 iconClass = 'fas fa-clipboard';
         }
 
-        const dateObj = new Date(item.week);
-        const formattedDate = dateObj.toLocaleDateString('pt-BR', { year: 'numeric', month: '2-digit', day: '2-digit' });
         const typeDisplay = typeMap[item.type] || item.type;
         
         // Pega o primeiro parágrafo/linha para o snippet
         const snippet = item.content.split('\n')[0];
         
+        // Estrutura do card com o botão de edição
         listItem.innerHTML = `
             <div class="card-header">
                 <div style="display: flex; align-items: center;">
                     <i class="${iconClass} icon"></i>
                     <span class="type-name">${typeDisplay}</span>
                 </div>
-                <span class="date">${formattedDate}</span>
+                <div class="card-actions">
+                    <button class="edit-button" title="Editar" onclick="startEdit(${item.id}); event.stopPropagation();">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <span class="date">${formattedDate}</span>
+                </div>
             </div>
             <div class="card-content">
                 <p>${snippet}</p> 
@@ -186,10 +285,82 @@ function applyFiltersAndRender() {
 }
 
 // --------------------------------------------------------------------------------
-// 5. Manipulação de Formulário (Adicionar)
+// 6. Funções de Edição
 // --------------------------------------------------------------------------------
 
-document.getElementById('entry-form').addEventListener('submit', function(e) {
+/**
+ * Inicia o processo de edição: carrega os dados no formulário e altera o estado do UI.
+ * @param {number} id - O ID (índice original no array de dados) do item a ser editado.
+ */
+function startEdit(id) {
+    const entryToEdit = portfolioData.find(item => item.id === id);
+
+    if (!entryToEdit) {
+        console.error('Registro não encontrado para edição:', id);
+        return;
+    }
+
+    // 1. Define o estado de edição
+    isEditing = true;
+    editingIndex = id; 
+
+    // 2. Preenche o formulário
+    document.getElementById('week').value = entryToEdit.week;
+    document.getElementById('type').value = entryToEdit.type;
+    document.getElementById('content').value = entryToEdit.content;
+
+    // 3. Atualiza o UI da seção "Adicionar" para refletir o estado de edição
+    document.querySelector('#reflections h1').textContent = 'Editar Atividade / Reflexão';
+    document.querySelector('#entry-form button[type="submit"]').textContent = 'Salvar';
+    
+    // Adiciona o botão Cancelar (se ainda não existir)
+    let submitButton = document.querySelector('#entry-form button[type="submit"]');
+    let cancelButton = document.getElementById('cancel-edit-button');
+    if (!cancelButton) {
+        cancelButton = document.createElement('button');
+        cancelButton.type = 'button';
+        cancelButton.id = 'cancel-edit-button';
+        cancelButton.textContent = 'Cancelar';
+        cancelButton.onclick = () => cancelEdit(true);
+        // Insere depois do botão de submit
+        submitButton.parentNode.insertBefore(cancelButton, submitButton.nextSibling); 
+    }
+
+    // 4. Navega para a seção de edição/adicionar
+    showSection('reflections'); 
+}
+
+/**
+ * Limpa o estado de edição e reseta o formulário/UI.
+ * @param {boolean} shouldNavigate - Se deve navegar para a seção de Portfólio.
+ */
+function cancelEdit(shouldNavigate = true) {
+    isEditing = false;
+    editingIndex = null;
+    
+    // Reseta o formulário e o estado do UI
+    document.getElementById('entry-form').reset();
+    document.querySelector('#reflections h1').textContent = 'Adicionar Reflexão / Atividade';
+    document.querySelector('#entry-form button[type="submit"]').textContent = 'Adicionar';
+
+    // Remove o botão de cancelar
+    const cancelButton = document.getElementById('cancel-edit-button');
+    if (cancelButton) {
+        cancelButton.remove();
+    }
+    
+    // Volta para o Portfólio (opcional)
+    if (shouldNavigate) {
+        showSection('portfolio');
+    }
+}
+
+
+// --------------------------------------------------------------------------------
+// 7. Manipulação de Formulário (Adicionar/Editar)
+// --------------------------------------------------------------------------------
+
+document.getElementById('entry-form').addEventListener('submit', async function(e) {
     e.preventDefault();
 
     const week = document.getElementById('week').value;
@@ -202,64 +373,28 @@ document.getElementById('entry-form').addEventListener('submit', function(e) {
         content: content
     };
 
-    // Adiciona o novo item ao início do array (mais recente)
-    portfolioData.unshift(newEntry);
-
-    // Salvaria no servidor aqui (simulado)
-    applyFiltersAndRender();
-    updateDashboard(); // Atualiza o dashboard com o novo item
-    
-    // Navega para o Portfólio após adicionar
-    showSection('portfolio');
-    
-    // Limpa o formulário
-    e.target.reset(); 
-    document.getElementById('week').focus();
+    if (isEditing) {
+        // Lógica de Edição (PUT)
+        await saveEntry(newEntry, editingIndex);
+    } else {
+        // Lógica de Adição (POST)
+        await saveEntry(newEntry, null);
+    }
 });
 
 
 // --------------------------------------------------------------------------------
-// 6. Inicialização (Carregamento de Dados e Eventos)
+// 8. Inicialização (Carregamento de Dados e Eventos)
 // --------------------------------------------------------------------------------
 
-document.addEventListener('DOMContentLoaded', () => {
-    // Carregamento de dados inicial (usando o conteúdo de portfolio.json fornecido)
-    const initialData = [
-        {
-            "week": "2025-09-16",
-            "type": "atividade_avaliativa",
-            "content": "Nessa semana, fomos submetidos a um questionário com 5 questões básicas para responder apenas com o nosso conhecimento prévio. As questões versavam sobre o que é dado, informação, conhecimento, gestão da informação e sistemas da informação. Minha experiência pessoal foi perceber que mesmo nunca ter estudado na literatura esses conceitos, já tinha uma noção superficial das ideias ali expostas. Porém posteriormente tive a oportunidade de realizar uma pesquisa científica sobre os temas e consolidar o conhecimento preenchendo as lacunas.\n\nOutra atividade interessando foi realizada em sala de aula, onde uma situação problema envolvendo resolver um problema de organização de estoque em uma loja de roupas brancas. Essa atividade mostrou que cada grupo adotou uma estratégia diferente para solucionar o mesmo problema e ao final ao compartilhar as idéias conseguimos visualizar o problema por outras perspectiva"
-        },
-        {
-            "week": "2025-09-16",
-            "type": "forum",
-            "content": "A discussão destacou que, no processo decisório organizacional, raramente é possível contar com todas as informações necessárias. Muitas vezes há escassez de dados relevantes, excesso de informações que dificultam a análise ou ainda prazos curtos que obrigam os gestores a decidir rapidamente. Além disso, as informações estão em constante mudança, o que torna difícil manter uma base sempre atualizada e completa. A capacidade dos gestores em interpretar e selecionar o que é realmente importante também influencia diretamente na qualidade das escolhas.\n\nQuanto ao trabalho em equipe, foi ressaltado que ele contribui significativamente para a tomada de decisão. A diversidade de perspectivas, experiências e conhecimentos amplia a análise dos problemas, gera alternativas mais criativas e reduz a chance de erros. O trabalho colaborativo também fortalece a aprendizagem coletiva, melhora a comunicação, a confiança e o engajamento, criando um ambiente em que as decisões são mais bem fundamentadas.\n\nEm resumo, as organizações não conseguem eliminar completamente as incertezas, mas podem reduzi-las por meio de uma boa gestão da informação e, principalmente, pelo fortalecimento do trabalho em equipe, que potencializa a qualidade e a efetividade das decisões."
-        },
-        {
-            "week": "2025-09-16",
-            "type": "reflexao_pessoal",
-            "content": "Essa foi a primeira semana de aula então houve dificuldade em acompanhar a nova rotina de estudos. Mesmo assim considero muito produtivo os novos conteúdos assimilados. Pude exercer a capacidade de construir um argumento baseado em estudos prévios, além de interagir com os demais colegas sobre os temas expostos"
-        },
-        {
-            "week": "2025-09-30",
-            "type": "forum",
-            "content": "Nessa semana, a discussão do fórum consistiu na transição do pensamento reducionista para o sistêmico e complexo (expansionismo), impulsionada pela interdependência global pós-guerra e pela Era da Informação, o que tornou as teorias clássicas de administração insuficientes para lidar com organizações vistas agora como sistemas abertos e dinâmicos. Essa mudança paradigmática, que exige considerar a interação entre fatores internos e externos, a subjetividade e a transdisciplinaridade, reflete-se na prática pela evolução do Marketing (1.0 ao 3.0), que passou do foco no produto para o cliente e, finalmente, para os valores e responsabilidade social. Nesse cenário complexo, a informação e o conhecimento tornam-se recursos estratégicos vitais, com o sucesso da Tecnologia da Informação dependendo de sua aplicação estratégica para resolver problemas, reforçando a necessidade de uma gestão que equilibre o valor econômico com o impacto social em um sistema global interconectado."
-        },
-        {
-            "week": "2025-09-30",
-            "type": "atividade_avaliativa",
-            "content": "O que são Sistemas de Informações? - são conjuntos estruturados de componentes—que incluem pessoas, processos e tecnologia—organizados para coletar, processar, armazenar e distribuir dados e informações em uma organização. Em sua essência, um SI atua como um sistema de trabalho que transforma dados brutos em conhecimento útil para apoiar o funcionamento de toda a empresa. Embora a visão tecnológica se concentre em hardware e software, a perspectiva mais abrangente, a sociotécnica, reconhece que o sistema é uma integração vital entre a tecnologia, os fatores humanos e os processos de negócio. Assim, os SI vão além da mera Tecnologia da Informação (TI), sendo fundamentais para a coordenação, o controle, a análise e, principalmente, a tomada de decisão em todos os níveis organizacionais, desde as operações rotineiras até as estratégias de longo prazo.\n\nQuais as contribuições desses sistemas de informações para as organizações? - Aumentam a eficiência operacional ao automatizar tarefas, reduzir erros e liberar colaboradores para focar em atividades de maior valor agregado. Por meio da integração e análise de dados, os SI melhoram a qualidade da tomada de decisões, otimizando processos e permitindo o uso de indicadores de desempenho para um aprimoramento contínuo. Estrategicamente, esses sistemas promovem a vantagem competitiva ao possibilitar que a organização desenvolva a capacidade de transformar rapidamente dados em conhecimento e se adapte com agilidade a ambientes de mercado dinâmicos. Em suma, a adoção estratégica de SI é um motor de transformação organizacional, resultando em melhor comunicação, maior transparência e contribuições significativas para o sucesso financeiro e não financeiro da empresa."
-        }
-    ];
-    portfolioData = initialData;
+document.addEventListener('DOMContentLoaded', async () => {
+    // 1. Carregamento de dados inicial
+    await loadDataAndRender(); 
 
-    // 2. Inicialização do Dashboard
-    updateDashboard();
-
-    // 3. Configuração dos filtros
+    // 2. Configuração dos filtros
     document.getElementById('filter-type').addEventListener('change', applyFiltersAndRender);
     document.getElementById('filter-date').addEventListener('change', applyFiltersAndRender);
 
-    // 4. Inicia mostrando o Dashboard (chamará updateDashboard, que já foi chamada acima)
+    // 3. Inicia mostrando o Dashboard
     showSection('dashboard');
 });

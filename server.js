@@ -40,6 +40,31 @@ app.post("/save", (req, res) => {
   res.json({ success: true, message: "Registro salvo com sucesso!" });
 });
 
+// Rota para atualizar um registro existente (NOVO)
+app.put("/update", (req, res) => {
+  const { index, newEntry } = req.body;
+  let entries = [];
+
+  // Tenta ler o arquivo existente
+  if (fs.existsSync(dataFile)) {
+    const data = fs.readFileSync(dataFile, "utf8");
+    entries = JSON.parse(data);
+  }
+
+  // Verifica se o índice é válido e atualiza a entrada
+  if (index !== undefined && index >= 0 && index < entries.length) {
+    entries[index] = newEntry;
+
+    // Salva o array completo de volta no arquivo
+    fs.writeFileSync(dataFile, JSON.stringify(entries, null, 2), "utf8");
+
+    console.log("Registro atualizado no índice:", index, "em:", dataFile);
+    res.json({ success: true, message: "Registro atualizado com sucesso!" });
+  } else {
+    res.status(400).json({ success: false, message: "Índice de registro inválido." });
+  }
+});
+
 // Rota para listar todos os registros
 app.get("/entries", (req, res) => {
   if (fs.existsSync(dataFile)) {
