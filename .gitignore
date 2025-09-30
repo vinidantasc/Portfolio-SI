@@ -1,9 +1,6 @@
 # Ignora o diretório de dependências do Node.js
 node_modules/
 
-# Ignora o arquivo de dados
-data/portfolio.json
-
 # Ignora logs e temporários
 npm-debug.log*
 .DS_Store
