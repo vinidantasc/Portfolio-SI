@@ -72,20 +72,86 @@ function showSection(sectionId) {
     }
 }
 
+function renderActivityPieChart() {
+    const activityCounts = {};
+    const total = portfolioData.length;
+
+    portfolioData.forEach(item => {
+        activityCounts[item.type] = (activityCounts[item.type] || 0) + 1;
+    });
+
+    const types = ['atividade_avaliativa', 'forum', 'reflexao_pessoal'];
+    let gradientStops = [];
+    let currentAngle = 0;
+    
+    const typeColors = {
+        'atividade_avaliativa': '#4CAF50',
+        'forum': '#2196F3',
+        'reflexao_pessoal': '#FF9800'
+    };
+    
+    const friendlyTypeMap = {
+        'atividade_avaliativa': 'Atividades Avaliativas',
+        'forum': 'Fóruns',
+        'reflexao_pessoal': 'Reflexões Pessoais'
+    };
+
+    types.forEach(type => {
+        const count = activityCounts[type] || 0;
+        const percent = total > 0 ? (count / total) * 100 : 0;
+        const angle = total > 0 ? (count / total) * 360 : 0;
+        
+        if (angle > 0) {
+            const nextAngle = currentAngle + angle;
+            const color = typeColors[type];
+            gradientStops.push(`${color} ${currentAngle.toFixed(1)}deg ${nextAngle.toFixed(1)}deg`);
+            currentAngle = nextAngle;
+        }
+    });
+
+    const pieChart = document.getElementById('activity-pie-chart');
+    if (pieChart) {
+        if (gradientStops.length === 0) {
+             pieChart.style.background = '#eee';
+        } else {
+             pieChart.style.background = `conic-gradient(${gradientStops.join(', ')})`;
+        }
+        
+        let legendContainer = pieChart.nextElementSibling;
+        if (!legendContainer || !legendContainer.classList.contains('pie-chart-legend')) {
+             legendContainer = document.createElement('div');
+             legendContainer.className = 'pie-chart-legend';
+             pieChart.parentNode.appendChild(legendContainer);
+        }
+        
+        legendContainer.innerHTML = '';
+        types.forEach(type => {
+             const count = activityCounts[type] || 0;
+             const percent = total > 0 ? (count / total) * 100 : 0;
+             if (count > 0) {
+                legendContainer.innerHTML += `
+                    <div class="legend-item">
+                        <span class="legend-color" style="background-color: ${typeColors[type]};"></span>
+                        ${friendlyTypeMap[type]}: ${count} (${percent.toFixed(1)}%)
+                    </div>
+                `;
+             }
+        });
+    }
+}
+
 function updateDashboard() {
     const totalActivities = portfolioData.length;
     const totalForums = portfolioData.filter(item => item.type === 'forum').length;
     const totalReflections = portfolioData.filter(item => item.type === 'reflexao_pessoal').length;
     const totalEvaluativeActivities = portfolioData.filter(item => item.type === 'atividade_avaliativa').length;
     
-    const totalCompletionBasis = 5;
-    const recentData = [...portfolioData].reverse();
-    const completionPercent = Math.min(100, Math.round((totalEvaluativeActivities / totalCompletionBasis) * 100));
-
     document.getElementById('total-activities').textContent = totalActivities.toString();
     document.getElementById('total-forums').textContent = totalForums.toString();
     document.getElementById('total-reflections').textContent = totalReflections.toString();
-    document.getElementById('completion-percent').textContent = `${completionPercent}%`;
+    document.getElementById('total-evaluative').textContent = totalEvaluativeActivities.toString();
+    
+    renderActivityPieChart();
 }
 
 function openModal(date, type, content) {
