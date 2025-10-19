@@ -2,17 +2,32 @@
   "name": "portfolio",
   "version": "1.0.0",
   "main": "server.js",
+  "bin": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js"
+  },
+  "pkg": {
+    "assets": [
+      "public/**/*"
+    ]
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "body-parser": "^2.2.0",
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "open": "^8.4.2"
   },
-  "devDependencies": {},
-  "description": ""
+  "description": "",
+  "pkg": {
+    "assets": [
+      "public/**/*"
+    ],
+    "targets": [
+      "node18-win-x64",
+      "node18-macos-x64"
+    ]
+  }
 }
