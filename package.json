@@ -18,7 +18,8 @@
   "description": "",
   "pkg": {
     "assets": [
-      "public/**/*"
+      "public/**/*",
+      "data/**/*"
     ],
     "targets": [
       "node18-win-x64",
