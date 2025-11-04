@@ -15,7 +15,7 @@ if (!fs.existsSync(dataDir)) {
 }
 
 app.use(bodyParser.json());
-app.use(express.static("public"));
+app.use(express.static(path.join(basePath, "public")));
 app.post("/save", (req, res) => {
   const newEntry = req.body;
   let entries = [];
