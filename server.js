@@ -78,18 +78,25 @@ app.get("/entries", (req, res) => {
 });
 
 app.listen(PORT, () => {
-  // --- INÍCIO DA MODIFICAÇÃO ---
   if (isPkg) {
     console.log("==================================================================================================");
-    console.log("ATENÇÃO: Este programa funciona somente em MODO LEITURA.");
-    console.log("Se trata do trabalho elaborado durante a disciplina de Gestão de Sistemas de Informação");
-    console.log("do Mestrado em Ciência da Informação na UFRN.");
+    console.log("ATENÇÃO: A aplicação está rodando em MODO SOMENTE-LEITURA.");
     console.log("");
-    console.log("Para utilizar o software de forma livre (com salvamento e edição habilitados),");
-    console.log("consulte o repositório no GitHub: https://github.com/vinidantasc/Portfolio-SI");
+    console.log("Este projeto é o trabalho final da disciplina de Gestão de Sistemas de Informação");
+    console.log("do Mestrado Profissional em Ciência da Informação (UFRN).");
+    console.log("");
+    console.log("Ele demonstra dois níveis de Sistemas de Informação:");
+    console.log(" 1. O Nível Tático (SIG), que é o 'Dashboard'.");
+    console.log(" 2. O Nível Operacional (SPT), que é o formulário 'Adicionar'.");
+    console.log("");
+    console.log("Neste modo, apenas o SIG (Dashboard) está funcional para visualização.");
+    console.log("O SPT está desabilitado, pois esta versão");
+    console.log("não permite a escrita de novos dados no 'banco de dados'.");
+    console.log("");
+    console.log("Para utilizar a versão completa siga as instruções 'Como Rodar o Projeto Localmente' no repositório:");
+    console.log("https://github.com/vinidantasc/Portfolio-SI");
     console.log("==================================================================================================");
   }
-  // --- FIM DA MODIFICAÇÃO ---
 
   console.log(`Servidor rodando em http://localhost:${PORT}`);
   console.log('Abrindo a aplicacao no seu navegador...');
