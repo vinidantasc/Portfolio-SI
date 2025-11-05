@@ -4,3 +4,7 @@ node_modules/
 # Ignora logs e temporários
 npm-debug.log*
 .DS_Store
+
+# Ignora arquivos .exe
+portfolio-macos
+portfolio.exe
