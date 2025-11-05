@@ -84,6 +84,7 @@ app.listen(PORT, () => {
     console.log("");
     console.log("Este projeto é o trabalho final da disciplina de Gestão de Sistemas de Informação");
     console.log("do Mestrado Profissional em Ciência da Informação (UFRN).");
+    console.log("Autor: Vinicius Dantas Carvalho");
     console.log("");
     console.log("Ele demonstra dois níveis de Sistemas de Informação:");
     console.log(" 1. O Nível Tático (SIG), que é o 'Dashboard'.");
