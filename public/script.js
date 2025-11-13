@@ -21,6 +21,30 @@ async function loadDataAndRender() {
     }
 }
 
+async function deleteEntry(id) {
+    if (!confirm('Tem certeza que deseja deletar este registro? Esta ação não pode ser desfeita.')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/delete/${id}`, {
+            method: 'DELETE',
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            alert(result.message);
+            await loadDataAndRender();
+        } else {
+            alert('Erro ao deletar o registro: ' + result.message);
+        }
+    } catch (error) {
+        console.error('Erro de rede ao deletar:', error);
+        alert('Erro de comunicação com o servidor.');
+    }
+}
+
 async function saveEntry(entry, id = null) {
     const method = id !== null ? 'PUT' : 'POST';
     const endpoint = id !== null ? '/update' : '/save';
@@ -231,11 +255,15 @@ function renderPortfolio(data) {
                     <i class="${iconClass} icon"></i>
                     <span class="type-name">${typeDisplay}</span>
                 </div>
+                
                 <div class="card-actions">
+                    <span class="date">${formattedDate}</span>
                     <button class="edit-button" title="Editar" onclick="startEdit(${item.id}); event.stopPropagation();">
                         <i class="fas fa-edit"></i>
                     </button>
-                    <span class="date">${formattedDate}</span>
+                    <button class="delete-button" title="Deletar" onclick="deleteEntry(${item.id}); event.stopPropagation();">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
                 </div>
             </div>
             <div class="card-content">

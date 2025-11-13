@@ -415,3 +415,18 @@ form button:hover {
     border-radius: 3px;
     margin-right: 8px;
 }
+
+.card-actions .delete-button {
+    background: none;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 0;
+    margin-left: 8px;
+    line-height: 1;
+}
+
+.card-actions .delete-button:hover {
+    color: #e74c3c; 
+}

@@ -67,6 +67,34 @@ app.put("/update", (req, res) => {
   }
 });
 
+app.delete("/delete/:id", (req, res) => {
+  if (isPkg) {
+    return res.status(403).json({ 
+      success: false, 
+      message: "Não é possível deletar dados no modo de aplicação empacotada (somente-leitura)." 
+    });
+  }
+
+  const index = parseInt(req.params.id, 10);
+  let entries = [];
+
+  if (fs.existsSync(dataFile)) {
+    const data = fs.readFileSync(dataFile, "utf8");
+    entries = JSON.parse(data);
+  }
+
+  if (index !== undefined && index >= 0 && index < entries.length) {
+    entries.splice(index, 1); 
+
+    fs.writeFileSync(dataFile, JSON.stringify(entries, null, 2), "utf8");
+
+    console.log("Registro deletado no índice:", index, "em:", dataFile);
+    res.json({ success: true, message: "Registro deletado com sucesso!" });
+  } else {
+    res.status(400).json({ success: false, message: "Índice de registro inválido." });
+  }
+});
+
 app.get("/entries", (req, res) => {
   if (fs.existsSync(dataFile)) {
     const data = fs.readFileSync(dataFile, "utf8");
