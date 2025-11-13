@@ -2,17 +2,42 @@ let portfolioData = [];
 let filteredData = [];
 let isEditing = false;
 let editingIndex = null;
+let flatpickrInstance = null;
+
 const typeMap = {
     'atividade_avaliativa': 'Atividade Avaliativa',
     'forum': 'Fórum',
     'reflexao_pessoal': 'Reflexão Pessoal'
 };
 
+function initializeFlatpickr() {
+    const activeDates = [...new Set(portfolioData.map(item => item.week))];
+
+    if (flatpickrInstance) {
+        flatpickrInstance.destroy();
+    }
+
+    flatpickrInstance = flatpickr("#filter-date", {
+        locale: "pt",
+        dateFormat: "Y-m-d",
+        altInput: true,
+        altFormat: "d/m/Y",
+        
+        enable: activeDates,
+
+        onChange: function(selectedDates, dateStr, instance) {
+            applyFiltersAndRender();
+        }
+    });
+}
+
 async function loadDataAndRender() {
     try {
         const response = await fetch('/entries');
         let data = await response.json();
         portfolioData = data.map((item, index) => ({ ...item, id: index }));
+        
+        initializeFlatpickr();
         
         updateDashboard();
         applyFiltersAndRender();
@@ -294,7 +319,10 @@ function applyFiltersAndRender() {
 
 function clearFilters() {
     document.getElementById('filter-type').value = 'todos';
-    document.getElementById('filter-date').value = '';
+    
+    if (flatpickrInstance) {
+        flatpickrInstance.clear();
+    }
     applyFiltersAndRender();
 }
 
@@ -372,7 +400,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadDataAndRender(); 
 
     document.getElementById('filter-type').addEventListener('change', applyFiltersAndRender);
-    document.getElementById('filter-date').addEventListener('change', applyFiltersAndRender);
     document.getElementById('clear-filters-button').addEventListener('click', clearFilters);
 
     showSection('dashboard');
